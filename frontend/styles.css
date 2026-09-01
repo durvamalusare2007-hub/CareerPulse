@@ -1,0 +1,80 @@
+/* CareerPulse AI Custom Styles & Theme Palette */
+:root {
+  --color-dark: #2A2A2A;
+  --color-bg: #F9F5ED;
+  --color-primary: #5E83AE;
+  --color-primary-dark: #47688F;
+  --color-primary-light: #7E9EB8;
+  --color-emerald: #2E7D32;
+  --color-amber: #D97706;
+}
+
+body {
+  background-color: #F9F5ED;
+  color: #2A2A2A;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #F0ECE1;
+}
+::-webkit-scrollbar-thumb {
+  background: #C4CCD4;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #5E83AE;
+}
+
+/* Badge animations & Smooth transitions */
+.transition-smooth {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -5px rgba(42, 42, 42, 0.08), 0 8px 10px -6px rgba(42, 42, 42, 0.04);
+}
+
+/* Custom Gradients */
+.bg-brand-gradient {
+  background: linear-gradient(135deg, #2A2A2A 0%, #3D4A59 100%);
+}
+
+.bg-accent-gradient {
+  background: linear-gradient(135deg, #5E83AE 0%, #47688F 100%);
+}
+
+.bg-card-warm {
+  background-color: #FFFFFF;
+  border: 1px solid #EAE5D9;
+}
+
+.badge-skill-have {
+  background-color: #E8F5E9;
+  color: #2E7D32;
+  border: 1px solid #C8E6C9;
+}
+
+.badge-skill-gap {
+  background-color: #FEF3C7;
+  color: #B45309;
+  border: 1px solid #FDE68A;
+}
+
+.badge-skill-neutral {
+  background-color: #F1F5F9;
+  color: #475569;
+  border: 1px solid #E2E8F0;
+}
