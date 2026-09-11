@@ -128,6 +128,37 @@ async def update_skills(req: SkillUpdateRequest):
     updated_cand = await cand_col.find_one({"id": req.candidate_id})
     return {"success": True, "skills": clean_skills, "candidate": updated_cand}
 
+@router.delete("/{candidate_id}")
+async def delete_resume(candidate_id: str):
+    """Deletes uploaded resume file and clears resume reference for candidate."""
+    db = get_db()
+    cand_col = db.get_collection("candidates")
+    cand = await cand_col.find_one({"id": candidate_id})
+    if not cand:
+        raise HTTPException(status_code=404, detail="Candidate not found.")
+
+    filename = cand.get("resume_filename")
+    if filename:
+        upload_path = UPLOADS_DIR / filename
+        if upload_path.exists():
+            try:
+                upload_path.unlink()
+            except Exception as e:
+                print(f"Error removing file {upload_path}: {e}")
+
+    await cand_col.update_one(
+        {"id": candidate_id},
+        {"$set": {
+            "resume_filename": None,
+            "skills": [],
+            "experience": [],
+            "education": [],
+            "summary": ""
+        }}
+    )
+    updated_cand = await cand_col.find_one({"id": candidate_id})
+    return {"success": True, "message": "Resume deleted successfully.", "candidate": updated_cand}
+
 @router.get("/file/{filename}")
 async def get_resume_file(filename: str):
     """Serves the PDF resume file for viewing or downloading."""

@@ -30,10 +30,36 @@ function Toast({ message, type = "info", onClose }) {
   );
 }
 
+// Confirmation Modal Component
+function ConfirmModal({ isOpen, title, message, confirmText = "Confirm", confirmColor = "bg-red-600 hover:bg-red-700", onConfirm, onCancel }) {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+      <div className="bg-white rounded-2xl p-6 max-w-md w-full border border-[#EAE5D9] shadow-xl space-y-4">
+        <h3 className="font-bold text-lg text-[#2A2A2A]">{title}</h3>
+        <p className="text-xs text-gray-600 leading-relaxed">{message}</p>
+        <div className="flex items-center justify-end gap-3 pt-2">
+          <button
+            onClick={onCancel}
+            className="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold transition-smooth"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className={`px-4 py-2 rounded-xl text-white text-xs font-bold transition-smooth shadow-xs ${confirmColor}`}
+          >
+            {confirmText}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Main App Component
 function App() {
   // Authentication State
-  // userType: null (not logged in), "job_seeker", or "company"
   const [userType, setUserType] = useState(() => localStorage.getItem("cp_user_type") || null);
   const [currentUser, setCurrentUser] = useState(() => {
     const saved = localStorage.getItem("cp_user_profile");
@@ -41,24 +67,31 @@ function App() {
   });
 
   // Current Active Page / View
-  const [currentView, setCurrentView] = useState("dashboard"); // job_seeker: dashboard, resume, recommendations, skill_gap, roadmap | company: company_dashboard, create_job, matched_candidates, candidate_profile
+  const [currentView, setCurrentView] = useState("dashboard"); // dashboard, resume, recommendations, jobs_apply, skill_gap, roadmap | company_dashboard, create_job, matched_candidates, candidate_profile
   
   // Job Seeker Specific State
   const [recommendations, setRecommendations] = useState(null);
   const [selectedRoleForGap, setSelectedRoleForGap] = useState("fullstack-dev");
   const [skillGapData, setSkillGapData] = useState(null);
   const [roadmapData, setRoadmapData] = useState(null);
+  const [appliedJobIds, setAppliedJobIds] = useState(new Set());
+  const [allCompanyJobs, setAllCompanyJobs] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [showNotificationsModal, setShowNotificationsModal] = useState(false);
 
   // Company Specific State
   const [companyJobs, setCompanyJobs] = useState([]);
   const [selectedJobId, setSelectedJobId] = useState(null);
   const [matchedCandidatesData, setMatchedCandidatesData] = useState(null);
   const [selectedCandidateDossier, setSelectedCandidateDossier] = useState(null);
+  const [editingJob, setEditingJob] = useState(null); // For edit job modal
+  const [interviewCandidateModal, setInterviewCandidateModal] = useState(null); // { candidate, job }
 
   // Common UI State
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
   const [taxonomy, setTaxonomy] = useState({});
+  const [news, setNews] = useState([]);
 
   const showToast = (msg, type = "info") => {
     setToast({ message: msg, type });
@@ -82,9 +115,10 @@ function App() {
     }
   }, [currentUser]);
 
-  // Initial Taxonomy Fetch
+  // Initial Data Fetch
   useEffect(() => {
     fetchTaxonomy();
+    fetchNews();
   }, []);
 
   const fetchTaxonomy = async () => {
@@ -97,10 +131,25 @@ function App() {
     }
   };
 
+  const fetchNews = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/news`);
+      if (res.ok) {
+        const data = await res.json();
+        setNews(data);
+      }
+    } catch (e) {
+      console.error("Error fetching news:", e);
+    }
+  };
+
   // Load User / Company data when logged in
   useEffect(() => {
     if (userType === "job_seeker" && currentUser?.id) {
       loadJobSeekerData(currentUser.id);
+      fetchCandidateApplications(currentUser.id);
+      fetchUserNotifications(currentUser.id);
+      fetchAllJobs();
     } else if (userType === "company" && currentUser?.id) {
       loadCompanyData(currentUser.id);
     }
@@ -148,6 +197,43 @@ function App() {
       }
     } catch (e) {
       console.error("Error fetching company jobs:", e);
+    }
+  };
+
+  const fetchAllJobs = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/jobs`);
+      if (res.ok) {
+        const jobs = await res.json();
+        setAllCompanyJobs(jobs);
+      }
+    } catch (e) {
+      console.error("Error fetching all jobs:", e);
+    }
+  };
+
+  const fetchCandidateApplications = async (candidateId) => {
+    try {
+      const res = await fetch(`${API_BASE}/jobs/applications/candidate/${candidateId}`);
+      if (res.ok) {
+        const apps = await res.json();
+        const appliedSet = new Set(apps.map(a => a.job_id));
+        setAppliedJobIds(appliedSet);
+      }
+    } catch (e) {
+      console.error("Error fetching candidate applications:", e);
+    }
+  };
+
+  const fetchUserNotifications = async (userId) => {
+    try {
+      const res = await fetch(`${API_BASE}/notifications/${userId}`);
+      if (res.ok) {
+        const notifs = await res.json();
+        setNotifications(notifs);
+      }
+    } catch (e) {
+      console.error("Error fetching notifications:", e);
     }
   };
 
@@ -224,12 +310,110 @@ function App() {
     }
   };
 
+  const handleApplyToJob = async (jobId) => {
+    if (!currentUser) return;
+    try {
+      const res = await fetch(`${API_BASE}/jobs/${jobId}/apply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ candidate_id: currentUser.id, candidate_name: currentUser.name })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setAppliedJobIds(prev => new Set([...prev, jobId]));
+        showToast("Application submitted successfully!", "success");
+      } else {
+        showToast(data.message || "Failed to apply.", "error");
+      }
+    } catch (e) {
+      showToast("Error submitting application.", "error");
+    }
+  };
+
+  const handleDeleteResume = async () => {
+    if (!currentUser) return;
+    try {
+      const res = await fetch(`${API_BASE}/resumes/${currentUser.id}`, {
+        method: "DELETE"
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setCurrentUser(data.candidate);
+        setRecommendations(null);
+        showToast("Resume deleted successfully.", "success");
+      } else {
+        showToast("Failed to delete resume.", "error");
+      }
+    } catch (e) {
+      showToast("Error deleting resume.", "error");
+    }
+  };
+
+  const handleDeleteJob = async (jobId) => {
+    try {
+      const res = await fetch(`${API_BASE}/jobs/${jobId}`, {
+        method: "DELETE"
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setCompanyJobs(prev => prev.filter(j => j.id !== jobId));
+        showToast("Job requisition deleted successfully.", "success");
+      } else {
+        showToast("Failed to delete job.", "error");
+      }
+    } catch (e) {
+      showToast("Error deleting job.", "error");
+    }
+  };
+
+  const handleUpdateJob = async (jobId, updatedFields) => {
+    try {
+      const res = await fetch(`${API_BASE}/jobs/${jobId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedFields)
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setCompanyJobs(prev => prev.map(j => j.id === jobId ? data.job : j));
+        setEditingJob(null);
+        showToast("Job requisition updated successfully!", "success");
+      } else {
+        showToast("Failed to update job.", "error");
+      }
+    } catch (e) {
+      showToast("Error updating job.", "error");
+    }
+  };
+
+  const handleSetCandidateStatus = async (jobId, candidateId, statusData) => {
+    try {
+      const res = await fetch(`${API_BASE}/jobs/${jobId}/candidates/${candidateId}/status`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(statusData)
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(statusData.status === "interview" ? "Interview scheduled and notification sent!" : "Rejection notification sent.", "success");
+        setInterviewCandidateModal(null);
+        // Refresh matched candidates view
+        fetchMatchedCandidatesForJob(jobId);
+      } else {
+        showToast("Failed to update candidate status.", "error");
+      }
+    } catch (e) {
+      showToast("Error updating status.", "error");
+    }
+  };
+
   const handleLogout = () => {
     setUserType(null);
     setCurrentUser(null);
     setRecommendations(null);
     setCompanyJobs([]);
     setMatchedCandidatesData(null);
+    setAppliedJobIds(new Set());
     setCurrentView("dashboard");
     showToast("Logged out successfully.", "info");
   };
@@ -239,7 +423,7 @@ function App() {
     if (window.lucide) {
       window.lucide.createIcons();
     }
-  }, [currentView, userType, currentUser, recommendations, skillGapData, roadmapData, matchedCandidatesData]);
+  }, [currentView, userType, currentUser, recommendations, skillGapData, roadmapData, matchedCandidatesData, news, companyJobs, allCompanyJobs]);
 
   // If not logged in, render the dual Login/Sign Up portal
   if (!userType || !currentUser) {
@@ -330,6 +514,12 @@ function App() {
                   Resume & Skills
                 </button>
                 <button
+                  onClick={() => setCurrentView("jobs_apply")}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${currentView === "jobs_apply" ? "bg-[#2A2A2A] text-white" : "text-gray-700 hover:bg-[#F3EFE6]"}`}
+                >
+                  Jobs & Apply
+                </button>
+                <button
                   onClick={() => setCurrentView("recommendations")}
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${currentView === "recommendations" ? "bg-[#2A2A2A] text-white" : "text-gray-700 hover:bg-[#F3EFE6]"}`}
                 >
@@ -368,6 +558,22 @@ function App() {
 
           {/* Right Side: Logged-in User Profile & Logout */}
           <div className="flex items-center gap-3">
+            {/* Job Seeker Notifications Bell */}
+            {userType === "job_seeker" && (
+              <button
+                onClick={() => setShowNotificationsModal(true)}
+                className="relative p-2 rounded-lg bg-[#F0ECE1] hover:bg-[#E2DDD0] text-gray-700 transition-smooth"
+                title="View Notifications"
+              >
+                <span className="text-base">🔔</span>
+                {notifications.length > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-600 text-white rounded-full text-[10px] font-bold flex items-center justify-center">
+                    {notifications.length}
+                  </span>
+                )}
+              </button>
+            )}
+
             <div className="text-right hidden sm:block">
               <div className="text-xs font-bold text-[#2A2A2A]">{currentUser.name}</div>
               <div className="text-[11px] text-gray-500">
@@ -405,6 +611,7 @@ function App() {
                 {currentView === "dashboard" && (
                   <JobSeekerCleanDashboardView
                     candidate={currentUser}
+                    news={news}
                     onNavigate={(view) => setCurrentView(view)}
                     onExploreCategory={(roleId) => {
                       fetchSkillGap(roleId);
@@ -416,12 +623,23 @@ function App() {
                   <ResumeSkillAnalysisView
                     candidate={currentUser}
                     taxonomy={taxonomy}
+                    onDeleteResume={handleDeleteResume}
                     onUpdateCandidate={(updated) => {
                       setCurrentUser(updated);
                       fetchCurrentRoleRecommendations(updated.id);
                       showToast("Skills updated successfully!", "success");
                     }}
                     showToast={showToast}
+                  />
+                )}
+
+                {currentView === "jobs_apply" && (
+                  <JobSeekerJobsApplyView
+                    candidate={currentUser}
+                    jobs={allCompanyJobs}
+                    appliedJobIds={appliedJobIds}
+                    onApply={handleApplyToJob}
+                    onNavigateToResume={() => setCurrentView("resume")}
                   />
                 )}
 
@@ -468,6 +686,8 @@ function App() {
                     company={currentUser}
                     jobs={companyJobs}
                     onCreateJob={() => setCurrentView("create_job")}
+                    onEditJob={(job) => setEditingJob(job)}
+                    onDeleteJob={handleDeleteJob}
                     onViewMatches={(jobId) => fetchMatchedCandidatesForJob(jobId)}
                   />
                 )}
@@ -488,6 +708,10 @@ function App() {
                 {currentView === "matched_candidates" && (
                   <MatchedCandidatesView
                     matchData={matchedCandidatesData}
+                    onSelectInterview={(cand, job) => setInterviewCandidateModal({ candidate: cand, job })}
+                    onRejectCandidate={(candId, jobId) => {
+                      handleSetCandidateStatus(jobId, candId, { status: "rejected" });
+                    }}
                     onViewCandidate={(candId) => viewCandidateDossier(candId)}
                     onBack={() => setCurrentView("company_dashboard")}
                   />
@@ -497,6 +721,10 @@ function App() {
                   <CandidateProfileView
                     candidate={selectedCandidateDossier}
                     currentJob={matchedCandidatesData?.job}
+                    onSelectInterview={(cand, job) => setInterviewCandidateModal({ candidate: cand, job })}
+                    onRejectCandidate={(candId, jobId) => {
+                      handleSetCandidateStatus(jobId, candId, { status: "rejected" });
+                    }}
                     onBack={() => setCurrentView("matched_candidates")}
                   />
                 )}
@@ -506,6 +734,33 @@ function App() {
         )}
 
       </main>
+
+      {/* Edit Job Modal */}
+      {editingJob && (
+        <EditJobModal
+          job={editingJob}
+          onClose={() => setEditingJob(null)}
+          onSave={(jobId, fields) => handleUpdateJob(jobId, fields)}
+        />
+      )}
+
+      {/* Interview Selection Modal */}
+      {interviewCandidateModal && (
+        <InterviewSelectionModal
+          candidate={interviewCandidateModal.candidate}
+          job={interviewCandidateModal.job}
+          onClose={() => setInterviewCandidateModal(null)}
+          onSubmit={(statusData) => handleSetCandidateStatus(interviewCandidateModal.job.id, interviewCandidateModal.candidate.candidate_id || interviewCandidateModal.candidate.id, statusData)}
+        />
+      )}
+
+      {/* Job Seeker Notifications Modal */}
+      {showNotificationsModal && (
+        <NotificationsModal
+          notifications={notifications}
+          onClose={() => setShowNotificationsModal(false)}
+        />
+      )}
 
       {/* Footer */}
       <footer className="bg-white border-t border-[#EAE5D9] py-6 text-center text-xs text-gray-500">
@@ -526,8 +781,8 @@ function App() {
 // AUTH PORTAL: Separate Login & Sign Up
 // ----------------------------------------------------
 function AuthPortalView({ onLoginSuccess, showToast }) {
-  const [activeTab, setActiveTab] = useState("job_seeker"); // "job_seeker" or "company"
-  const [authMode, setAuthMode] = useState("login"); // "login" or "signup"
+  const [activeTab, setActiveTab] = useState("job_seeker");
+  const [authMode, setAuthMode] = useState("login");
 
   // Form Fields
   const [email, setEmail] = useState("");
@@ -561,7 +816,6 @@ function AuthPortalView({ onLoginSuccess, showToast }) {
           showToast(data.detail || "Login failed. Check your email or sign up.", "error");
         }
       } else {
-        // Sign Up
         const endpoint = activeTab === "job_seeker" ? `${API_BASE}/auth/register/job-seeker` : `${API_BASE}/auth/register/company`;
         const payload = activeTab === "job_seeker"
           ? { name: name.trim(), email: email.trim(), phone: phone.trim(), title: title.trim() }
@@ -588,7 +842,6 @@ function AuthPortalView({ onLoginSuccess, showToast }) {
 
   return (
     <div className="max-w-xl mx-auto w-full">
-      {/* Intro Heading */}
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold font-heading text-[#2A2A2A] mb-2">
           Personalized Career & Employment Advisor
@@ -774,9 +1027,9 @@ function AuthPortalView({ onLoginSuccess, showToast }) {
 }
 
 // ----------------------------------------------------
-// VIEW 1: Clean Main Dashboard (Job Seeker Home)
+// VIEW 1: Clean Main Dashboard (Job Seeker Home) with Compact News
 // ----------------------------------------------------
-function JobSeekerCleanDashboardView({ candidate, onNavigate, onExploreCategory }) {
+function JobSeekerCleanDashboardView({ candidate, news, onNavigate, onExploreCategory }) {
   if (!candidate) return null;
 
   const hasResume = !!candidate.resume_filename;
@@ -797,7 +1050,7 @@ function JobSeekerCleanDashboardView({ candidate, onNavigate, onExploreCategory 
           </h1>
           <p className="text-gray-300 text-sm leading-relaxed">
             {hasResume
-              ? `You currently have ${skillsCount} verified skills on file. Explore roles you already qualify for or plan your next career step.`
+              ? `You currently have ${skillsCount} verified skills on file. Explore roles you already qualify for, browse job openings, or plan your next career step.`
               : "Get started by uploading your resume to discover job roles that match your existing skills without requiring extra training."}
           </p>
         </div>
@@ -807,7 +1060,7 @@ function JobSeekerCleanDashboardView({ candidate, onNavigate, onExploreCategory 
       <div className="space-y-4">
         <div>
           <h2 className="text-lg font-bold text-[#2A2A2A]">What would you like to do?</h2>
-          <p className="text-xs text-gray-500">Choose an action below to manage your profile or discover career opportunities.</p>
+          <p className="text-xs text-gray-500">Choose an action below to manage your profile, apply for jobs, or discover career opportunities.</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -832,22 +1085,22 @@ function JobSeekerCleanDashboardView({ candidate, onNavigate, onExploreCategory 
             </div>
           </div>
 
-          {/* Card 2: Explore Recommended Roles */}
+          {/* Card 2: Explore Roles & Apply */}
           <div
-            onClick={() => onNavigate("recommendations")}
+            onClick={() => onNavigate("jobs_apply")}
             className="bg-white p-6 rounded-2xl border border-[#EAE5D9] card-hover cursor-pointer flex flex-col justify-between space-y-4 shadow-2xs"
           >
             <div className="space-y-2">
               <div className="w-10 h-10 rounded-xl bg-[#E8F5E9] text-[#2E7D32] flex items-center justify-center text-xl font-bold">
                 🎯
               </div>
-              <h3 className="font-bold text-base text-[#2A2A2A]">Explore Roles</h3>
+              <h3 className="font-bold text-base text-[#2A2A2A]">Jobs & Apply</h3>
               <p className="text-xs text-gray-600 leading-relaxed">
-                View industry job roles you already qualify for right now based strictly on your existing skill set.
+                View posted job requisitions from companies, see your match percentage, and submit applications.
               </p>
             </div>
             <div className="text-xs font-bold text-[#2E7D32] flex items-center gap-1 pt-2">
-              <span>View Qualified Roles</span>
+              <span>Browse & Apply</span>
               <span>→</span>
             </div>
           </div>
@@ -875,73 +1128,46 @@ function JobSeekerCleanDashboardView({ candidate, onNavigate, onExploreCategory 
         </div>
       </div>
 
-      {/* "Explore Career Paths" Informational Section */}
+      {/* COMPACT INDUSTRY NEWS SECTION (Replaces "Explore Path") */}
       <div className="space-y-4 pt-2">
-        <div>
-          <h2 className="text-lg font-bold text-[#2A2A2A]">Explore Career Paths</h2>
-          <p className="text-xs text-gray-500">
-            Overview of standard industry career tracks and key domain competencies.
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-[#2A2A2A] flex items-center gap-2">
+              <span>📰</span> Industry News & Market Updates
+            </h2>
+            <p className="text-xs text-gray-500">
+              Latest hiring trends and employment updates.
+            </p>
+          </div>
+          <span className="text-xs font-semibold text-[#5E83AE] bg-blue-50 px-2.5 py-1 rounded-full border border-blue-100">
+            Live Feed
+          </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          
-          {/* Track 1: Technology & Software */}
-          <div className="bg-white p-5 rounded-xl border border-[#EAE5D9] shadow-2xs space-y-3">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">💻</span>
-              <h3 className="font-bold text-sm text-[#2A2A2A]">Technology</h3>
+        <div className="bg-white rounded-2xl border border-[#EAE5D9] shadow-2xs divide-y divide-gray-100 overflow-hidden">
+          {news && news.length > 0 ? (
+            news.map((item) => (
+              <div key={item.id} className="p-4 hover:bg-[#F9F5ED] transition-smooth flex items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-[#F0ECE1] text-[#2A2A2A]">
+                      {item.category}
+                    </span>
+                    <h3 className="text-xs sm:text-sm font-semibold text-[#2A2A2A] hover:text-[#5E83AE]">
+                      {item.headline}
+                    </h3>
+                  </div>
+                </div>
+                <div className="text-[11px] text-gray-500 shrink-0 text-right font-medium">
+                  {item.date_time}
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="p-6 text-center text-xs text-gray-500">
+              No news updates available at this moment.
             </div>
-            <p className="text-xs text-gray-600 leading-relaxed">
-              Frontend, backend, and full-stack software development building modern web platforms.
-            </p>
-            <div className="pt-2 border-t border-gray-100 text-[11px] text-gray-500">
-              <span className="font-semibold text-gray-700">Core Areas:</span> React, Python, JavaScript, APIs, SQL
-            </div>
-          </div>
-
-          {/* Track 2: Data & Analytics */}
-          <div className="bg-white p-5 rounded-xl border border-[#EAE5D9] shadow-2xs space-y-3">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">📊</span>
-              <h3 className="font-bold text-sm text-[#2A2A2A]">Data & Analytics</h3>
-            </div>
-            <p className="text-xs text-gray-600 leading-relaxed">
-              Extracting insights from data, building statistical models, and creating visualizations.
-            </p>
-            <div className="pt-2 border-t border-gray-100 text-[11px] text-gray-500">
-              <span className="font-semibold text-gray-700">Core Areas:</span> SQL, Pandas, Tableau, Analytics, Python
-            </div>
-          </div>
-
-          {/* Track 3: AI & Machine Learning */}
-          <div className="bg-white p-5 rounded-xl border border-[#EAE5D9] shadow-2xs space-y-3">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">🤖</span>
-              <h3 className="font-bold text-sm text-[#2A2A2A]">AI & ML</h3>
-            </div>
-            <p className="text-xs text-gray-600 leading-relaxed">
-              Training and deploying predictive models, neural networks, and generative intelligence.
-            </p>
-            <div className="pt-2 border-t border-gray-100 text-[11px] text-gray-500">
-              <span className="font-semibold text-gray-700">Core Areas:</span> Machine Learning, PyTorch, Docker, NLP
-            </div>
-          </div>
-
-          {/* Track 4: Cloud & DevOps */}
-          <div className="bg-white p-5 rounded-xl border border-[#EAE5D9] shadow-2xs space-y-3">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">☁️</span>
-              <h3 className="font-bold text-sm text-[#2A2A2A]">Cloud & DevOps</h3>
-            </div>
-            <p className="text-xs text-gray-600 leading-relaxed">
-              Automating infrastructure, container pipelines, observability, and cloud deployments.
-            </p>
-            <div className="pt-2 border-t border-gray-100 text-[11px] text-gray-500">
-              <span className="font-semibold text-gray-700">Core Areas:</span> Linux, Docker, AWS, CI/CD, Kubernetes
-            </div>
-          </div>
-
+          )}
         </div>
       </div>
 
@@ -950,13 +1176,14 @@ function JobSeekerCleanDashboardView({ candidate, onNavigate, onExploreCategory 
 }
 
 // ----------------------------------------------------
-// VIEW 2: Resume & Skill Analysis
+// VIEW 2: Resume & Skill Analysis with Delete Option
 // ----------------------------------------------------
-function ResumeSkillAnalysisView({ candidate, taxonomy, onUpdateCandidate, showToast }) {
+function ResumeSkillAnalysisView({ candidate, taxonomy, onDeleteResume, onUpdateCandidate, showToast }) {
   if (!candidate) return null;
 
   const [isUploading, setIsUploading] = useState(false);
   const [newSkillInput, setNewSkillInput] = useState("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
@@ -1045,7 +1272,7 @@ function ResumeSkillAnalysisView({ candidate, taxonomy, onUpdateCandidate, showT
         </p>
       </div>
 
-      {/* Upload Box */}
+      {/* Upload Box with Delete Button */}
       <div className="bg-white p-8 rounded-2xl border-2 border-dashed border-[#D5CEBF] flex flex-col items-center justify-center text-center hover:border-[#5E83AE] transition-smooth">
         <div className="w-14 h-14 rounded-full bg-[#F0ECE1] flex items-center justify-center text-[#5E83AE] mb-3 text-2xl">
           📄
@@ -1063,19 +1290,42 @@ function ResumeSkillAnalysisView({ candidate, taxonomy, onUpdateCandidate, showT
         </label>
 
         {candidate.resume_filename && (
-          <div className="mt-4 pt-3 border-t border-gray-100 flex items-center gap-3 text-xs text-gray-600">
-            <span>Current File: <strong>{candidate.resume_filename}</strong></span>
+          <div className="mt-5 pt-4 border-t border-gray-100 flex flex-wrap items-center justify-center gap-3 text-xs">
+            <span className="text-gray-600">Active Resume: <strong>{candidate.resume_filename}</strong></span>
             <span>•</span>
             <a
               href={`${API_BASE}/resumes/file/${candidate.resume_filename}`}
               target="_blank"
               className="font-bold text-[#5E83AE] hover:underline"
             >
-              View Uploaded PDF ↗
+              View PDF ↗
             </a>
+            <span>•</span>
+            {/* Small Delete Icon/Button with Confirmation */}
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="text-red-600 hover:text-red-800 font-semibold inline-flex items-center gap-1 hover:underline"
+              title="Delete uploaded resume"
+            >
+              <span>🗑️</span> Delete Resume
+            </button>
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showDeleteConfirm}
+        title="Delete Uploaded Resume"
+        message="Are you sure you want to delete your uploaded resume? This will clear your identified skills and profile data."
+        confirmText="Delete Resume"
+        confirmColor="bg-red-600 hover:bg-red-700"
+        onConfirm={() => {
+          setShowDeleteConfirm(false);
+          onDeleteResume();
+        }}
+        onCancel={() => setShowDeleteConfirm(false)}
+      />
 
       {/* Skills Matrix */}
       <div className="bg-white p-6 sm:p-8 rounded-2xl border border-[#EAE5D9] shadow-sm space-y-6">
@@ -1204,7 +1454,157 @@ function ResumeSkillAnalysisView({ candidate, taxonomy, onUpdateCandidate, showT
 }
 
 // ----------------------------------------------------
-// VIEW 3: Recommended Roles (Strict Current-Skills Only)
+// VIEW 3: Jobs + Apply & Matched Jobs (Job Seeker View)
+// ----------------------------------------------------
+function JobSeekerJobsApplyView({ candidate, jobs, appliedJobIds, onApply, onNavigateToResume }) {
+  const [filterMode, setFilterMode] = useState("all"); // "all" or "matched"
+  const userSkillSet = useMemo(() => new Set((candidate?.skills || []).map(s => s.toLowerCase())), [candidate?.skills]);
+
+  // Compute match for each company job using existing matching logic
+  const jobsWithMatch = useMemo(() => {
+    return jobs.map(job => {
+      const reqSkills = job.required_skills || [];
+      const matchedReq = reqSkills.filter(s => userSkillSet.has(s.toLowerCase()));
+      const matchPct = reqSkills.length > 0 ? Math.round((matchedReq.length / reqSkills.length) * 100) : 100;
+      const isApplied = appliedJobIds.has(job.id);
+      return {
+        ...job,
+        matchedReq,
+        matchPct,
+        isApplied
+      };
+    });
+  }, [jobs, userSkillSet, appliedJobIds]);
+
+  const displayedJobs = useMemo(() => {
+    if (filterMode === "matched") {
+      return jobsWithMatch.filter(j => j.matchPct >= 60);
+    }
+    return jobsWithMatch;
+  }, [jobsWithMatch, filterMode]);
+
+  return (
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="bg-white p-6 rounded-2xl border border-[#EAE5D9] shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold font-heading text-[#2A2A2A]">Company Job Openings</h1>
+          <p className="text-xs text-gray-600 mt-1">
+            Browse active job requisitions from partner companies and submit your application with 1-click.
+          </p>
+        </div>
+
+        {/* Filter Tabs: All vs Matched Only */}
+        <div className="bg-[#F0ECE1] p-1 rounded-xl flex text-xs">
+          <button
+            onClick={() => setFilterMode("all")}
+            className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${filterMode === "all" ? "bg-white text-[#2A2A2A] shadow-xs" : "text-gray-600 hover:text-gray-900"}`}
+          >
+            All Openings ({jobsWithMatch.length})
+          </button>
+          <button
+            onClick={() => setFilterMode("matched")}
+            className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${filterMode === "matched" ? "bg-white text-[#2A2A2A] shadow-xs" : "text-gray-600 hover:text-gray-900"}`}
+          >
+            Matched Jobs ({jobsWithMatch.filter(j => j.matchPct >= 60).length})
+          </button>
+        </div>
+      </div>
+
+      {/* Jobs List */}
+      {displayedJobs.length === 0 ? (
+        <div className="bg-white p-12 rounded-2xl border border-[#EAE5D9] text-center space-y-3">
+          <div className="w-12 h-12 rounded-full bg-[#F0ECE1] text-[#5E83AE] flex items-center justify-center text-2xl mx-auto">
+            💼
+          </div>
+          <h3 className="text-base font-bold text-[#2A2A2A]">
+            {filterMode === "matched" ? "No Matched Jobs Found" : "No Job Requisitions Available"}
+          </h3>
+          <p className="text-xs text-gray-500 max-w-sm mx-auto">
+            {filterMode === "matched"
+              ? "None of the active postings currently match at least 60% of your skills. Try uploading your resume to update your skill set."
+              : "No companies have posted active job requisitions yet. Check back soon."}
+          </p>
+          {filterMode === "matched" && (
+            <button
+              onClick={onNavigateToResume}
+              className="px-4 py-2 rounded-xl bg-[#5E83AE] hover:bg-[#4A6B8F] text-white text-xs font-bold transition-smooth shadow-xs"
+            >
+              Update Resume & Skills →
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {displayedJobs.map((job) => (
+            <div
+              key={job.id}
+              className="bg-white p-6 rounded-2xl border border-[#EAE5D9] card-hover flex flex-col justify-between space-y-4 shadow-sm"
+            >
+              <div className="space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <h3 className="font-bold text-base text-[#2A2A2A]">{job.title}</h3>
+                    <div className="text-xs text-gray-500 font-medium">{job.company_name} • {job.location}</div>
+                  </div>
+                  <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold shrink-0 ${job.matchPct >= 75 ? "bg-emerald-100 text-[#2E7D32]" : job.matchPct >= 60 ? "bg-blue-100 text-[#5E83AE]" : "bg-gray-100 text-gray-600"}`}>
+                    {job.matchPct}% Skill Fit
+                  </span>
+                </div>
+
+                <p className="text-xs text-gray-600 line-clamp-2">{job.description}</p>
+
+                <div className="flex flex-wrap gap-2 text-xs text-gray-500">
+                  <span>💰 {job.salary_range}</span>
+                  <span>•</span>
+                  <span>⏳ {job.experience_required}</span>
+                </div>
+
+                {/* Required Skills */}
+                <div className="pt-1">
+                  <div className="text-[11px] font-semibold text-gray-500 mb-1.5">Required Skills:</div>
+                  <div className="flex flex-wrap gap-1">
+                    {job.required_skills?.map((s) => {
+                      const hasSkill = userSkillSet.has(s.toLowerCase());
+                      return (
+                        <span
+                          key={s}
+                          className={`text-xs px-2 py-0.5 rounded-md font-medium border ${hasSkill ? "bg-[#E8F5E9] text-[#2E7D32] border-[#C8E6C9]" : "bg-[#F9F5ED] text-gray-600 border-[#EAE5D9]"}`}
+                        >
+                          {hasSkill ? "✓ " : ""}{s}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Button: Apply vs Already Applied */}
+              <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
+                <span className="text-[11px] text-gray-500">Posted on {job.created_at}</span>
+                {job.isApplied ? (
+                  <span className="px-4 py-1.5 rounded-xl bg-emerald-50 text-[#2E7D32] border border-emerald-200 text-xs font-bold inline-flex items-center gap-1">
+                    <span>✓</span> Applied
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => onApply(job.id)}
+                    className="px-5 py-2 rounded-xl bg-[#5E83AE] hover:bg-[#4A6B8F] text-white text-xs font-bold transition-smooth shadow-xs"
+                  >
+                    Apply Now →
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ----------------------------------------------------
+// VIEW 4: Recommended Roles (Strict Current-Skills Only)
 // ----------------------------------------------------
 function RecommendedRolesView({ candidate, recommendations, onAnalyzeGap, onGenerateRoadmap, onNavigateToResume }) {
   if (!candidate) return null;
@@ -1383,7 +1783,7 @@ function RecommendedRolesView({ candidate, recommendations, onAnalyzeGap, onGene
 }
 
 // ----------------------------------------------------
-// VIEW 4: Role Details & Skill Gap Analysis
+// VIEW 5: Role Details & Skill Gap Analysis
 // ----------------------------------------------------
 function RoleDetailsSkillGapView({ gapData, candidate, onGenerateRoadmap, onBack, onSelectAnotherRole }) {
   if (!gapData || !candidate) return null;
@@ -1532,7 +1932,7 @@ function RoleDetailsSkillGapView({ gapData, candidate, onGenerateRoadmap, onBack
 }
 
 // ----------------------------------------------------
-// VIEW 5: Future Opportunities & Learning Roadmap
+// VIEW 6: Future Opportunities & Learning Roadmap
 // ----------------------------------------------------
 function LearningRoadmapView({ roadmap, candidate, onBack, showToast }) {
   if (!roadmap || !candidate) return null;
@@ -1665,11 +2065,12 @@ function LearningRoadmapView({ roadmap, candidate, onBack, showToast }) {
 }
 
 // ----------------------------------------------------
-// VIEW 6: Company Dashboard
+// VIEW 7: Company Dashboard with Edit & Delete Requisitions
 // ----------------------------------------------------
-function CompanyDashboardView({ company, jobs, onCreateJob, onViewMatches }) {
+function CompanyDashboardView({ company, jobs, onCreateJob, onEditJob, onDeleteJob, onViewMatches }) {
   if (!company) return null;
 
+  const [deleteTargetId, setDeleteTargetId] = useState(null);
   const totalMatches = jobs.reduce((acc, j) => acc + (j.matched_candidates_count || 0), 0);
   const totalHighFit = jobs.reduce((acc, j) => acc + (j.high_fit_candidates_count || 0), 0);
 
@@ -1697,6 +2098,20 @@ function CompanyDashboardView({ company, jobs, onCreateJob, onViewMatches }) {
           + Post Job Requisition
         </button>
       </div>
+
+      {/* Delete Job Confirmation Modal */}
+      <ConfirmModal
+        isOpen={!!deleteTargetId}
+        title="Delete Job Requisition"
+        message="Are you sure you want to delete this job requisition? All applicant matching data for this post will be removed. This action cannot be undone."
+        confirmText="Delete Requisition"
+        confirmColor="bg-red-600 hover:bg-red-700"
+        onConfirm={() => {
+          onDeleteJob(deleteTargetId);
+          setDeleteTargetId(null);
+        }}
+        onCancel={() => setDeleteTargetId(null)}
+      />
 
       {/* Company Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
@@ -1752,14 +2167,34 @@ function CompanyDashboardView({ company, jobs, onCreateJob, onViewMatches }) {
             {jobs.map((job) => (
               <div
                 key={job.id}
-                className="bg-white p-6 rounded-2xl border border-[#EAE5D9] card-hover flex flex-col justify-between space-y-4 shadow-sm"
+                className="bg-white p-6 rounded-2xl border border-[#EAE5D9] card-hover flex flex-col justify-between space-y-4 shadow-sm relative group"
               >
                 <div className="space-y-2">
                   <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-bold text-base text-[#2A2A2A]">{job.title}</h3>
-                    <span className="text-xs font-semibold text-[#5E83AE] bg-blue-50 px-2 py-0.5 rounded-full shrink-0">
-                      {job.location}
-                    </span>
+                    <div className="pr-12">
+                      <h3 className="font-bold text-base text-[#2A2A2A]">{job.title}</h3>
+                      <span className="text-xs font-semibold text-[#5E83AE] bg-blue-50 px-2 py-0.5 rounded-full inline-block mt-1">
+                        {job.location}
+                      </span>
+                    </div>
+
+                    {/* Small Edit and Delete Icons */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={() => onEditJob(job)}
+                        className="p-1.5 rounded-lg bg-[#F0ECE1] hover:bg-[#E2DDD0] text-[#2A2A2A] text-xs font-bold transition-smooth"
+                        title="Edit Job Requisition"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        onClick={() => setDeleteTargetId(job.id)}
+                        className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold transition-smooth"
+                        title="Delete Job Requisition"
+                      >
+                        🗑️
+                      </button>
+                    </div>
                   </div>
 
                   <p className="text-xs text-gray-600 line-clamp-2">{job.description}</p>
@@ -1787,7 +2222,7 @@ function CompanyDashboardView({ company, jobs, onCreateJob, onViewMatches }) {
                     onClick={() => onViewMatches(job.id)}
                     className="px-4 py-1.5 rounded-lg bg-[#2A2A2A] hover:bg-[#3D4A59] text-white text-xs font-semibold transition-smooth"
                   >
-                    View Matched Candidates →
+                    View Candidates →
                   </button>
                 </div>
               </div>
@@ -1800,7 +2235,327 @@ function CompanyDashboardView({ company, jobs, onCreateJob, onViewMatches }) {
 }
 
 // ----------------------------------------------------
-// VIEW 7: Create Job Requisition
+// EDIT JOB MODAL
+// ----------------------------------------------------
+function EditJobModal({ job, onClose, onSave }) {
+  const [title, setTitle] = useState(job.title || "");
+  const [description, setDescription] = useState(job.description || "");
+  const [location, setLocation] = useState(job.location || "Remote");
+  const [experienceRequired, setExperienceRequired] = useState(job.experience_required || "2+ years");
+  const [salaryRange, setSalaryRange] = useState(job.salary_range || "$95,000 - $135,000");
+  const [requiredSkills, setRequiredSkills] = useState(job.required_skills || []);
+  const [preferredSkills, setPreferredSkills] = useState(job.preferred_skills || []);
+  const [customSkillInput, setCustomSkillInput] = useState("");
+
+  const addSkill = () => {
+    if (!customSkillInput.trim()) return;
+    if (!requiredSkills.includes(customSkillInput.trim())) {
+      setRequiredSkills([...requiredSkills, customSkillInput.trim()]);
+      setCustomSkillInput("");
+    }
+  };
+
+  const removeSkill = (s) => {
+    setRequiredSkills(requiredSkills.filter(sk => sk !== s));
+  };
+
+  const handleSave = (e) => {
+    e.preventDefault();
+    onSave(job.id, {
+      title,
+      description,
+      location,
+      experience_required: experienceRequired,
+      salary_range: salaryRange,
+      required_skills: requiredSkills,
+      preferred_skills: preferredSkills
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 overflow-y-auto">
+      <div className="bg-white rounded-2xl p-6 max-w-2xl w-full border border-[#EAE5D9] shadow-xl space-y-4 my-8">
+        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+          <h3 className="font-bold text-lg text-[#2A2A2A]">Edit Job Requisition</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 font-bold text-lg">×</button>
+        </div>
+
+        <form onSubmit={handleSave} className="space-y-4 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block font-bold text-gray-700 uppercase tracking-wider mb-1">Job Title *</label>
+              <input
+                type="text"
+                required
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="w-full bg-[#F9F5ED] border border-[#D5CEBF] rounded-xl px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#5E83AE]"
+              />
+            </div>
+            <div>
+              <label className="block font-bold text-gray-700 uppercase tracking-wider mb-1">Location</label>
+              <input
+                type="text"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                className="w-full bg-[#F9F5ED] border border-[#D5CEBF] rounded-xl px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#5E83AE]"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block font-bold text-gray-700 uppercase tracking-wider mb-1">Experience Required</label>
+              <input
+                type="text"
+                value={experienceRequired}
+                onChange={(e) => setExperienceRequired(e.target.value)}
+                className="w-full bg-[#F9F5ED] border border-[#D5CEBF] rounded-xl px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#5E83AE]"
+              />
+            </div>
+            <div>
+              <label className="block font-bold text-gray-700 uppercase tracking-wider mb-1">Salary Range</label>
+              <input
+                type="text"
+                value={salaryRange}
+                onChange={(e) => setSalaryRange(e.target.value)}
+                className="w-full bg-[#F9F5ED] border border-[#D5CEBF] rounded-xl px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#5E83AE]"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block font-bold text-gray-700 uppercase tracking-wider mb-1">Job Description *</label>
+            <textarea
+              required
+              rows={3}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full bg-[#F9F5ED] border border-[#D5CEBF] rounded-xl p-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#5E83AE]"
+            ></textarea>
+          </div>
+
+          {/* Required Skills */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="font-bold text-gray-700 uppercase tracking-wider">Required Skills ({requiredSkills.length})</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Add skill..."
+                  value={customSkillInput}
+                  onChange={(e) => setCustomSkillInput(e.target.value)}
+                  className="bg-[#F9F5ED] border border-[#D5CEBF] text-xs rounded-lg px-2 py-1"
+                />
+                <button
+                  type="button"
+                  onClick={addSkill}
+                  className="px-2.5 py-1 rounded-lg bg-[#2A2A2A] text-white text-xs font-semibold"
+                >
+                  + Add
+                </button>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-1.5 p-2.5 rounded-xl bg-[#F9F5ED] border border-[#EAE5D9]">
+              {requiredSkills.map((s) => (
+                <span key={s} className="px-2.5 py-1 rounded-lg bg-[#E8F5E9] text-[#2E7D32] border border-[#C8E6C9] font-semibold flex items-center gap-1">
+                  <span>{s}</span>
+                  <button type="button" onClick={() => removeSkill(s)} className="text-gray-400 hover:text-red-600 ml-1">×</button>
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-5 py-2 rounded-xl bg-[#5E83AE] hover:bg-[#4A6B8F] text-white font-bold shadow-xs"
+            >
+              Save Changes
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ----------------------------------------------------
+// INTERVIEW SELECTION MODAL
+// ----------------------------------------------------
+function InterviewSelectionModal({ candidate, job, onClose, onSubmit }) {
+  const [location, setLocation] = useState("Google Meet (Video Conference)");
+  const [date, setDate] = useState(() => {
+    const nextWeek = new Date();
+    nextWeek.setDate(nextWeek.getDate() + 7);
+    return nextWeek.toISOString().split("T")[0];
+  });
+  const [time, setTime] = useState("10:00 AM EST");
+  const [requiredDocuments, setRequiredDocuments] = useState("Resume, Portfolio / GitHub links, Government ID");
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSubmit({
+      status: "interview",
+      location,
+      date,
+      time,
+      required_documents: requiredDocuments
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+      <div className="bg-white rounded-2xl p-6 max-w-lg w-full border border-[#EAE5D9] shadow-xl space-y-4">
+        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+          <div>
+            <h3 className="font-bold text-base text-[#2A2A2A]">Select for Interview</h3>
+            <p className="text-xs text-gray-500">Candidate: <strong>{candidate.name}</strong> • Role: <strong>{job.title}</strong></p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 font-bold text-lg">×</button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
+          <div>
+            <label className="block font-bold text-gray-700 uppercase tracking-wider mb-1">Interview Location / Platform *</label>
+            <input
+              type="text"
+              required
+              placeholder="e.g. Google Meet / Office Room 3B"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              className="w-full bg-[#F9F5ED] border border-[#D5CEBF] rounded-xl px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#5E83AE]"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block font-bold text-gray-700 uppercase tracking-wider mb-1">Interview Date *</label>
+              <input
+                type="date"
+                required
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="w-full bg-[#F9F5ED] border border-[#D5CEBF] rounded-xl px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#5E83AE]"
+              />
+            </div>
+            <div>
+              <label className="block font-bold text-gray-700 uppercase tracking-wider mb-1">Interview Time *</label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. 10:30 AM EST"
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+                className="w-full bg-[#F9F5ED] border border-[#D5CEBF] rounded-xl px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#5E83AE]"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block font-bold text-gray-700 uppercase tracking-wider mb-1">Required Documents *</label>
+            <textarea
+              required
+              rows={2}
+              placeholder="List required documents (e.g. Identification, Portfolio links, Degree certificates)..."
+              value={requiredDocuments}
+              onChange={(e) => setRequiredDocuments(e.target.value)}
+              className="w-full bg-[#F9F5ED] border border-[#D5CEBF] rounded-xl p-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#5E83AE]"
+            ></textarea>
+          </div>
+
+          <div className="p-3 bg-blue-50/70 border border-blue-100 rounded-xl text-[11px] text-gray-700 space-y-1">
+            <span className="font-bold text-[#5E83AE]">Structured Notification:</span>
+            <p>A formal interview invitation with the schedule and instructions will be sent directly to the candidate.</p>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-5 py-2 rounded-xl bg-[#2E7D32] hover:bg-[#256628] text-white font-bold shadow-xs"
+            >
+              Send Interview Invitation →
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ----------------------------------------------------
+// NOTIFICATIONS MODAL (Job Seeker View)
+// ----------------------------------------------------
+function NotificationsModal({ notifications, onClose }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+      <div className="bg-white rounded-2xl p-6 max-w-lg w-full border border-[#EAE5D9] shadow-xl space-y-4 max-h-[85vh] flex flex-col">
+        <div className="flex items-center justify-between border-b border-gray-100 pb-3 shrink-0">
+          <h3 className="font-bold text-base text-[#2A2A2A] flex items-center gap-2">
+            <span>🔔</span> Notifications & Status Updates ({notifications.length})
+          </h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 font-bold text-lg">×</button>
+        </div>
+
+        <div className="overflow-y-auto space-y-3 flex-1 pr-1">
+          {notifications.length === 0 ? (
+            <div className="p-8 text-center text-xs text-gray-500">
+              No notifications yet. When companies schedule interviews or update your applications, they will appear here.
+            </div>
+          ) : (
+            notifications.map((n) => (
+              <div
+                key={n.id}
+                className={`p-4 rounded-xl border text-xs space-y-2 ${n.type === "interview_invitation" ? "bg-emerald-50/60 border-emerald-200" : "bg-[#F9F5ED] border-[#EAE5D9]"}`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <h4 className="font-bold text-sm text-[#2A2A2A]">{n.title}</h4>
+                  <span className="text-[10px] text-gray-500 shrink-0">{n.created_at}</span>
+                </div>
+
+                {n.type === "interview_invitation" ? (
+                  <div className="space-y-1.5 pt-1 text-gray-700">
+                    <div><strong>📍 Location:</strong> {n.location}</div>
+                    <div><strong>📅 Date:</strong> {n.date} • <strong>⏰ Time:</strong> {n.time}</div>
+                    <div><strong>📋 Required Documents:</strong> {n.required_documents}</div>
+                  </div>
+                ) : (
+                  <p className="text-gray-700 leading-relaxed pt-1">{n.message}</p>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="pt-2 border-t border-gray-100 text-right shrink-0">
+          <button
+            onClick={onClose}
+            className="px-4 py-1.5 rounded-xl bg-[#2A2A2A] text-white text-xs font-semibold"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ----------------------------------------------------
+// VIEW 8: Create Job Requisition
 // ----------------------------------------------------
 function CreateJobView({ company, onJobCreated, onCancel, showToast }) {
   if (!company) return null;
@@ -2057,9 +2812,9 @@ function CreateJobView({ company, onJobCreated, onCancel, showToast }) {
 }
 
 // ----------------------------------------------------
-// VIEW 8: Matched Candidates (Company Recruiter View)
+// VIEW 9: Matched Candidates with Interview & Rejection
 // ----------------------------------------------------
-function MatchedCandidatesView({ matchData, onViewCandidate, onBack }) {
+function MatchedCandidatesView({ matchData, onSelectInterview, onRejectCandidate, onViewCandidate, onBack }) {
   if (!matchData) return null;
 
   const job = matchData.job;
@@ -2084,7 +2839,7 @@ function MatchedCandidatesView({ matchData, onViewCandidate, onBack }) {
               Matched Candidates for: {job?.title}
             </h1>
             <p className="text-xs text-gray-600 mt-1">
-              Candidates ranked by skill match against required competencies.
+              Candidates ranked by skill match against required competencies. Select candidates for interview or manage application status.
             </p>
           </div>
 
@@ -2112,6 +2867,10 @@ function MatchedCandidatesView({ matchData, onViewCandidate, onBack }) {
         <div className="space-y-4">
           {candidates.map((cand, rankIdx) => {
             const isTopFit = cand.match_score >= 75;
+            const isBelow60 = cand.match_score < 60;
+            const isInterview = cand.application_status === "interview";
+            const isRejected = cand.application_status === "rejected";
+
             return (
               <div
                 key={cand.candidate_id}
@@ -2130,6 +2889,18 @@ function MatchedCandidatesView({ matchData, onViewCandidate, onBack }) {
                         <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${isTopFit ? "bg-emerald-100 text-[#2E7D32]" : "bg-blue-100 text-[#5E83AE]"}`}>
                           {cand.tier}
                         </span>
+
+                        {/* Status Badges */}
+                        {isInterview && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-600 text-white font-bold">
+                            ✓ Interview Scheduled
+                          </span>
+                        )}
+                        {isRejected && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-semibold">
+                            Not Selected
+                          </span>
+                        )}
                       </div>
                       <p className="text-xs text-gray-500">{cand.title} • {cand.email}</p>
                     </div>
@@ -2145,6 +2916,20 @@ function MatchedCandidatesView({ matchData, onViewCandidate, onBack }) {
                     </div>
                   </div>
                 </div>
+
+                {/* Interview Scheduled Banner if active */}
+                {isInterview && cand.interview_details && (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-gray-800 space-y-1">
+                    <div className="font-bold text-[#2E7D32] flex items-center gap-1.5">
+                      <span>📅</span> Interview Scheduled
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] pt-0.5">
+                      <div><strong>Date & Time:</strong> {cand.interview_details.date} at {cand.interview_details.time}</div>
+                      <div><strong>Location:</strong> {cand.interview_details.location}</div>
+                      <div className="sm:col-span-2"><strong>Required Documents:</strong> {cand.interview_details.required_documents}</div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Summary */}
                 {cand.summary && (
@@ -2192,18 +2977,37 @@ function MatchedCandidatesView({ matchData, onViewCandidate, onBack }) {
                   </div>
                 </div>
 
-                {/* Card Footer Actions */}
-                <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
-                  <span className="text-xs text-gray-500 font-medium">
-                    {cand.skills?.length || 0} Skills on Profile
-                  </span>
-
+                {/* Card Footer Actions: Select Interview & Reject */}
+                <div className="pt-3 border-t border-gray-100 flex flex-wrap items-center justify-between gap-3">
                   <button
                     onClick={() => onViewCandidate(cand.candidate_id)}
-                    className="px-4 py-2 rounded-xl bg-[#5E83AE] hover:bg-[#4A6B8F] text-white text-xs font-bold transition-smooth shadow-sm"
+                    className="text-xs text-[#5E83AE] font-bold hover:underline"
                   >
-                    View Candidate Dossier →
+                    View Full Dossier →
                   </button>
+
+                  <div className="flex items-center gap-2">
+                    {/* Select for Interview Button */}
+                    <button
+                      onClick={() => onSelectInterview(cand, job)}
+                      className="px-4 py-2 rounded-xl bg-[#2E7D32] hover:bg-[#256628] text-white text-xs font-bold transition-smooth shadow-xs"
+                    >
+                      {isInterview ? "Update Interview" : "Select for Interview"}
+                    </button>
+
+                    {/* Reject Button */}
+                    {!isRejected ? (
+                      <button
+                        onClick={() => onRejectCandidate(cand.candidate_id, job.id)}
+                        className={`px-3 py-2 rounded-xl text-xs font-semibold transition-smooth ${isBelow60 ? "bg-red-50 hover:bg-red-100 text-red-700 border border-red-200" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
+                        title={isBelow60 ? "Candidate below 60% match threshold" : "Reject application"}
+                      >
+                        {isBelow60 ? "Reject (<60% Match)" : "Reject"}
+                      </button>
+                    ) : (
+                      <span className="text-xs text-gray-400 font-medium italic">Rejected</span>
+                    )}
+                  </div>
                 </div>
 
               </div>
@@ -2216,9 +3020,9 @@ function MatchedCandidatesView({ matchData, onViewCandidate, onBack }) {
 }
 
 // ----------------------------------------------------
-// VIEW 9: Candidate Profile Dossier (Recruiter View)
+// VIEW 10: Candidate Profile Dossier (Recruiter View)
 // ----------------------------------------------------
-function CandidateProfileView({ candidate, currentJob, onBack }) {
+function CandidateProfileView({ candidate, currentJob, onSelectInterview, onRejectCandidate, onBack }) {
   if (!candidate) return null;
 
   return (
@@ -2247,16 +3051,35 @@ function CandidateProfileView({ candidate, currentJob, onBack }) {
             </div>
           </div>
 
-          {candidate.resume_filename && (
-            <a
-              href={`${API_BASE}/resumes/file/${candidate.resume_filename}`}
-              target="_blank"
-              rel="noreferrer"
-              className="px-5 py-2.5 rounded-xl bg-[#2A2A2A] hover:bg-[#3D4A59] text-white text-xs font-bold transition-smooth shadow shrink-0"
-            >
-              📄 View PDF Resume
-            </a>
-          )}
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {currentJob && (
+              <>
+                <button
+                  onClick={() => onSelectInterview(candidate, currentJob)}
+                  className="px-4 py-2.5 rounded-xl bg-[#2E7D32] hover:bg-[#256628] text-white text-xs font-bold transition-smooth shadow-xs"
+                >
+                  Select for Interview
+                </button>
+                <button
+                  onClick={() => onRejectCandidate(candidate.id, currentJob.id)}
+                  className="px-3 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold transition-smooth"
+                >
+                  Reject
+                </button>
+              </>
+            )}
+
+            {candidate.resume_filename && (
+              <a
+                href={`${API_BASE}/resumes/file/${candidate.resume_filename}`}
+                target="_blank"
+                rel="noreferrer"
+                className="px-4 py-2.5 rounded-xl bg-[#2A2A2A] hover:bg-[#3D4A59] text-white text-xs font-bold transition-smooth shadow-xs"
+              >
+                📄 View PDF Resume
+              </a>
+            )}
+          </div>
         </div>
       </div>
 

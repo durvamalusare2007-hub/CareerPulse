@@ -188,6 +188,122 @@
       ],
       "resume_filename": "adf2161a6a_Document (7).pdf",
       "_id": "cand-b0c12195"
+    },
+    {
+      "id": "cand-25ae47fa",
+      "name": "Morgan Taylor",
+      "email": "morgan.taylor.test@example.com",
+      "phone": "(555) 987-6543",
+      "title": "Frontend Developer",
+      "summary": "Frontend Software Developer with experience in React, JavaScript, HTML5, CSS3, Tailwind CSS, and\nGit/GitHub.",
+      "skills": [
+        "HTML/CSS",
+        "Git/GitHub",
+        "Tailwind CSS",
+        "React",
+        "JavaScript",
+        "RESTful APIs",
+        "Redux"
+      ],
+      "experience": [
+        {
+          "title": "Web Developer - Modern Apps Co (2023 - Present)",
+          "details": "Web Developer - Modern Apps Co (2023 - Present) | Built responsive user interfaces using React, Redux, and Tailwind CSS.",
+          "bullets": []
+        }
+      ],
+      "education": [],
+      "resume_filename": "990099ff10_morgan_taylor_resume.pdf",
+      "_id": "cand-25ae47fa"
+    },
+    {
+      "id": "cand-b10330be",
+      "name": "Naina Sharma",
+      "email": "nainasharma@gmail.com",
+      "phone": "",
+      "title": "AI Engineer",
+      "summary": "AI Engineer with 2+ years of experience in developing machine learning and artificial\nintelligence solutions. Skilled in Python, machine learning, deep learning, natural language\nprocessing, and data analysis. Experienced in building predictive models, deploying AI\napplications, and working with real-world datasets.",
+      "skills": [
+        "Machine Learning",
+        "Git/GitHub",
+        "Python",
+        "Deep Learning",
+        "Data Analysis",
+        "Scikit-Learn",
+        "Pandas",
+        "PostgreSQL",
+        "AWS",
+        "Data Visualization",
+        "Problem Solving",
+        "TensorFlow",
+        "C++",
+        "Collaboration",
+        "Communication",
+        "Google Cloud (GCP)",
+        "Java",
+        "MongoDB",
+        "MySQL",
+        "Natural Language Processing (NLP)",
+        "NumPy",
+        "PyTorch",
+        "SQL",
+        "Time Management"
+      ],
+      "experience": [
+        {
+          "title": "AI Engineer \u2014 TechNova Solutions",
+          "details": "AI Engineer \u2014 TechNova Solutions | Mumbai, India | July 2024 \u2013 Present",
+          "bullets": [
+            "",
+            "Developed and optimized machine learning models for business prediction and"
+          ]
+        },
+        {
+          "title": "automation.",
+          "details": "automation.",
+          "bullets": [
+            "",
+            "Built NLP-based systems for text classification and information extraction.",
+            "",
+            "Designed data preprocessing and feature engineering pipelines using Python.",
+            "",
+            "Improved model performance through hyperparameter tuning and cross-validation.",
+            "",
+            "Collaborated with software engineers to integrate AI models into web applications.",
+            "",
+            "Used Git and GitHub for version control and collaborative development."
+          ]
+        },
+        {
+          "title": "Machine Learning Intern \u2014 DataMind Technologies",
+          "details": "Machine Learning Intern \u2014 DataMind Technologies | Mumbai, India | January 2024 \u2013 June 2024",
+          "bullets": [
+            "",
+            "Prepared and cleaned structured datasets for machine learning projects.",
+            "",
+            "Developed classification and regression models using Scikit-learn.",
+            "",
+            "Performed exploratory data analysis using Pandas and Matplotlib.",
+            "",
+            "Evaluated models using accuracy, precision, recall, F1-score, and cross-validation.",
+            "",
+            "Assisted in developing a customer sentiment analysis system."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "institution_or_degree": "Bachelor of Technology \u2014 Artificial Intelligence & Data Science"
+        },
+        {
+          "institution_or_degree": "University of Mumbai | 2020 \u2013 2024"
+        },
+        {
+          "institution_or_degree": "CGPA: 8.7/10"
+        }
+      ],
+      "resume_filename": "f74a4e4581_Document (6).pdf",
+      "_id": "cand-b10330be"
     }
   ],
   "companies": [
@@ -200,6 +316,26 @@
       "description": "Company profile for Amazona.",
       "logo_text": "A",
       "_id": "comp-e13cfd4b"
+    },
+    {
+      "id": "comp-30c3a577",
+      "name": "Nexus Cloud Innovations",
+      "email": "careers.test@nexuscloud.example.com",
+      "industry": "Cloud Software",
+      "location": "San Francisco, CA",
+      "description": "Building next-generation cloud infrastructure.",
+      "logo_text": "NC",
+      "_id": "comp-30c3a577"
+    },
+    {
+      "id": "comp-69b6dea2",
+      "name": "Microsofty",
+      "email": "microsofty@gmail.com",
+      "industry": "Technology",
+      "location": "Remote",
+      "description": "Company profile for Microsofty.",
+      "logo_text": "M",
+      "_id": "comp-69b6dea2"
     }
   ],
   "jobs": [
@@ -276,6 +412,232 @@
       "preferred_skills": [],
       "created_at": "2026-09-11",
       "_id": "job-8b5eebf6"
+    },
+    {
+      "id": "job-a5b72540",
+      "company_id": "comp-30c3a577",
+      "company_name": "Nexus Cloud Innovations",
+      "title": "Senior Frontend React Engineer",
+      "description": "Seeking an engineer proficient in React, JavaScript, HTML/CSS, Tailwind CSS, and Git/GitHub.",
+      "location": "Remote",
+      "experience_required": "2+ years",
+      "salary_range": "$110,000 - $145,000",
+      "required_skills": [
+        "React",
+        "JavaScript",
+        "HTML/CSS",
+        "Git/GitHub"
+      ],
+      "preferred_skills": [
+        "Tailwind CSS",
+        "Redux"
+      ],
+      "created_at": "2026-09-11",
+      "_id": "job-a5b72540"
+    },
+    {
+      "id": "job-822f267e",
+      "company_id": "comp-69b6dea2",
+      "company_name": "Microsofty",
+      "title": "AI Engineer",
+      "description": "Passionated Critical Thinking",
+      "location": "Remote",
+      "experience_required": "2+ years",
+      "salary_range": "$95,000 - $135,000",
+      "required_skills": [
+        "Python",
+        "Machine Learning"
+      ],
+      "preferred_skills": [],
+      "created_at": "2026-09-11",
+      "_id": "job-822f267e"
+    }
+  ],
+  "applications": [
+    {
+      "id": "app-3e8208a8",
+      "job_id": "job-a5b72540",
+      "job_title": "Senior Frontend React Engineer",
+      "company_id": "comp-30c3a577",
+      "company_name": "Nexus Cloud Innovations",
+      "candidate_id": "cand-25ae47fa",
+      "candidate_name": "Morgan Taylor",
+      "applied_at": "2026-09-11 12:51",
+      "status": "interview",
+      "_id": "app-3e8208a8",
+      "interview_details": {
+        "location": "Google Meet Video Call",
+        "date": "2026-09-22",
+        "time": "11:00 AM EST",
+        "required_documents": "Resume, Portfolio samples, Government ID"
+      },
+      "updated_at": "2026-09-11 12:51"
+    },
+    {
+      "id": "app-d193e25d ",
+      "job_id": "job-9f3eb286",
+      "job_title": "Data Analyst Requisition",
+      "company_id": "comp-30c3a577",
+      "company_name": "Nexus Cloud Innovations",
+      "candidate_id": "cand-25ae47fa",
+      "candidate_name": "Morgan Taylor",
+      "applied_at": "2026-09-11 12:51",
+      "status": "rejected",
+      "rejection_reason": "Does not meet the mandatory SQL / Pandas requirements for this specific role.",
+      "updated_at": "2026-09-11 12:51",
+      "_id": "app-d193e25d "
+    },
+    {
+      "id": "app-e7235ba2",
+      "job_id": "job-8b5eebf6",
+      "job_title": "Engineering Team Lead",
+      "company_id": "comp-e13cfd4b",
+      "company_name": "Amazona",
+      "candidate_id": "cand-b0790cc9",
+      "candidate_name": "DURVA MALUSARE",
+      "applied_at": "2026-09-11 13:02",
+      "status": "interview",
+      "_id": "app-e7235ba2",
+      "interview_details": {
+        "location": "Google Meet (Video Conference)",
+        "date": "2026-09-18",
+        "time": "10:00 AM EST",
+        "required_documents": "Resume, Portfolio / GitHub links, Government ID"
+      },
+      "updated_at": "2026-09-11 14:26",
+      "rejection_reason": "Does not meet the minimum required skill criteria at this time."
+    },
+    {
+      "id": "app-98473eb4",
+      "job_id": "job-822f267e",
+      "job_title": "AI Engineer",
+      "company_id": "comp-69b6dea2",
+      "company_name": "Microsofty",
+      "candidate_id": "cand-b10330be",
+      "candidate_name": "Naina Sharma",
+      "applied_at": "2026-09-11 13:12",
+      "status": "interview",
+      "_id": "app-98473eb4",
+      "interview_details": {
+        "location": "Google Meet (Video Conference)",
+        "date": "2026-09-18",
+        "time": "11:00 AM EST",
+        "required_documents": "Resume, Portfolio / GitHub links, Government ID"
+      },
+      "updated_at": "2026-09-11 13:12"
+    },
+    {
+      "id": "app-05be1f7f",
+      "job_id": "job-822f267e",
+      "job_title": "AI Engineer",
+      "company_id": "comp-69b6dea2",
+      "company_name": "Microsofty",
+      "candidate_id": "cand-b0790cc9",
+      "candidate_name": "DURVA MALUSARE",
+      "applied_at": "2026-09-11 14:24",
+      "status": "applied",
+      "_id": "app-05be1f7f"
+    }
+  ],
+  "notifications": [
+    {
+      "id": "notif-e8e164ee",
+      "user_id": "cand-25ae47fa",
+      "type": "interview_invitation",
+      "title": "Interview Invitation: Senior Frontend React Engineer at Nexus Cloud Innovations",
+      "company_name": "Nexus Cloud Innovations",
+      "job_title": "Senior Frontend React Engineer",
+      "location": "Google Meet Video Call",
+      "date": "2026-09-22",
+      "time": "11:00 AM EST",
+      "required_documents": "Resume, Portfolio samples, Government ID",
+      "created_at": "2026-09-11 12:51",
+      "is_read": false,
+      "_id": "notif-e8e164ee"
+    },
+    {
+      "id": "notif-79465084",
+      "user_id": "cand-25ae47fa",
+      "type": "application_update",
+      "title": "Application Status Update: Data Analyst Requisition at Nexus Cloud Innovations",
+      "company_name": "Nexus Cloud Innovations",
+      "job_title": "Data Analyst Requisition",
+      "message": "Thank you for your interest in the Data Analyst Requisition position at Nexus Cloud Innovations. After careful review, we have decided to pursue other candidates whose current skill profile more closely aligns with our current requirements.",
+      "created_at": "2026-09-11 12:51",
+      "is_read": false,
+      "_id": "notif-79465084"
+    },
+    {
+      "id": "notif-932dc166",
+      "user_id": "cand-b0790cc9",
+      "type": "interview_invitation",
+      "title": "Interview Invitation: Engineering Team Lead at Amazona",
+      "company_name": "Amazona",
+      "job_title": "Engineering Team Lead",
+      "location": "Google Meet (Video Conference)",
+      "date": "2026-09-18",
+      "time": "10:00 AM EST",
+      "required_documents": "Resume, Portfolio / GitHub links, Government ID",
+      "created_at": "2026-09-11 13:03",
+      "is_read": false,
+      "_id": "notif-932dc166"
+    },
+    {
+      "id": "notif-621b7280",
+      "user_id": "cand-b0790cc9",
+      "type": "application_update",
+      "title": "Application Status Update: Engineering Team Lead at Amazona",
+      "company_name": "Amazona",
+      "job_title": "Engineering Team Lead",
+      "message": "Thank you for your interest in the Engineering Team Lead position at Amazona. After careful review, we have decided to pursue other candidates whose current skill profile more closely aligns with our current requirements.",
+      "created_at": "2026-09-11 13:04",
+      "is_read": false,
+      "_id": "notif-621b7280"
+    },
+    {
+      "id": "notif-23387366",
+      "user_id": "cand-b10330be",
+      "type": "interview_invitation",
+      "title": "Interview Invitation: AI Engineer at Microsofty",
+      "company_name": "Microsofty",
+      "job_title": "AI Engineer",
+      "location": "Google Meet (Video Conference)",
+      "date": "2026-09-18",
+      "time": "10:00 AM EST",
+      "required_documents": "Resume, Portfolio / GitHub links, Government ID",
+      "created_at": "2026-09-11 13:12",
+      "is_read": false,
+      "_id": "notif-23387366"
+    },
+    {
+      "id": "notif-9cba4937",
+      "user_id": "cand-b10330be",
+      "type": "interview_invitation",
+      "title": "Interview Invitation: AI Engineer at Microsofty",
+      "company_name": "Microsofty",
+      "job_title": "AI Engineer",
+      "location": "Google Meet (Video Conference)",
+      "date": "2026-09-18",
+      "time": "11:00 AM EST",
+      "required_documents": "Resume, Portfolio / GitHub links, Government ID",
+      "created_at": "2026-09-11 13:12",
+      "is_read": false,
+      "_id": "notif-9cba4937"
+    },
+    {
+      "id": "notif-3643e0f8",
+      "user_id": "cand-b0790cc9",
+      "type": "interview_invitation",
+      "title": "Interview Invitation: Engineering Team Lead at Amazona",
+      "company_name": "Amazona",
+      "job_title": "Engineering Team Lead",
+      "location": "Google Meet (Video Conference)",
+      "date": "2026-09-18",
+      "time": "10:00 AM EST",
+      "required_documents": "Resume, Portfolio / GitHub links, Government ID",
+      "created_at": "2026-09-11 14:26",
+      "is_read": false,
+      "_id": "notif-3643e0f8"
     }
   ]
 }
